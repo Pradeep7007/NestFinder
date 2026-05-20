@@ -1,8 +1,8 @@
 /* ==========================================================================
-   NESTFINDER - MAIN APPLICATION (STEP 4)
+   NESTFINDER - MAIN APPLICATION (STEP 5)
    ========================================================================== */
 
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
 // Initial listing database
 const DEFAULT_LISTINGS = [
@@ -100,11 +100,26 @@ function App() {
     const [filterPriceRange, setFilterPriceRange] = useState(10000);
     const [filterVerified, setFilterVerified] = useState(false);
 
+    // Map instances and markers ref
+    const mapInstance = useRef(null);
+    const markers = useRef([]);
+
+    // Refresh lucide icons
     useEffect(() => {
         if (window.lucide) {
             window.lucide.createIcons();
         }
-    }, [currentTab, userRole, listings, searchQuery, filterType, filterDistrict, filterPriceRange, filterVerified]);
+    });
+
+    // Expose global bridge for marker click
+    useEffect(() => {
+        window.viewPropertyDetails = (id) => {
+            alert(`Selected property ID: ${id}`);
+        };
+        return () => {
+            delete window.viewPropertyDetails;
+        };
+    }, []);
 
     // Computed filters logic
     const filteredListings = useMemo(() => {
@@ -118,6 +133,66 @@ function App() {
             return matchQuery && matchType && matchDistrict && matchPrice && matchVerify;
         });
     }, [listings, searchQuery, filterType, filterDistrict, filterPriceRange, filterVerified]);
+
+    // Initialize/update Map
+    useEffect(() => {
+        if (currentTab !== "browse") return;
+
+        const mapEl = document.getElementById("map");
+        if (!mapEl) return;
+
+        if (!mapInstance.current) {
+            // San Francisco Center View
+            mapInstance.current = L.map("map").setView([37.7749, -122.4194], 12);
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(mapInstance.current);
+        }
+
+        // Clear existing markers
+        markers.current.forEach(m => m.remove());
+        markers.current = [];
+
+        // Add listing markers
+        filteredListings.forEach(prop => {
+            if (prop.coordinates) {
+                const customIcon = L.divIcon({
+                    html: `<div style="background: ${prop.verified ? '#10b981' : '#6366f1'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.5);"></div>`,
+                    className: 'custom-map-pin',
+                    iconSize: [12, 12]
+                });
+
+                const marker = L.marker(prop.coordinates, { icon: customIcon })
+                    .addTo(mapInstance.current)
+                    .bindPopup(`
+                        <div style="font-family: var(--font-body); width: 180px;">
+                            <strong style="color: var(--text-primary); font-size: 0.95rem;">${prop.title}</strong><br/>
+                            <span style="color: #6366f1; font-weight: 700; font-size: 0.9rem;">$${prop.price.toLocaleString()}/mo</span><br/>
+                            <button onclick="window.viewPropertyDetails('${prop.id}')" style="margin-top: 8px; width: 100%; border: none; background: #6366f1; color: white; padding: 4px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.75rem;">View details</button>
+                        </div>
+                    `);
+                markers.current.push(marker);
+            }
+        });
+
+        // Trigger resize
+        setTimeout(() => {
+            if (mapInstance.current) mapInstance.current.invalidateSize();
+        }, 100);
+
+    }, [currentTab, filteredListings]);
+
+    // Clean up map
+    useEffect(() => {
+        return () => {
+            if (mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+            }
+        };
+    }, []);
 
     return (
         <React.Fragment>
@@ -247,7 +322,7 @@ function App() {
                                 </div>
                                 <div className="listings-grid">
                                     {filteredListings.map(property => (
-                                        <div key={property.id} className="property-card">
+                                        <div key={property.id} className="property-card" onClick={() => window.viewPropertyDetails(property.id)}>
                                             <div className="property-image-container">
                                                 <img src={property.image} className="property-image" alt={property.title} />
                                                 <span className="card-badge">{property.district}</span>
@@ -278,6 +353,12 @@ function App() {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                            <div className="map-container">
+                                <div className="map-header">
+                                    <i data-lucide="map"></i> Spatial Viewfinder
+                                </div>
+                                <div id="map"></div>
                             </div>
                         </div>
                     </React.Fragment>
