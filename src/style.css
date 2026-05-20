@@ -1,5 +1,5 @@
 /* ==========================================================================
-   NESTFINDER - DESIGN SYSTEM & STYLING (STEP 3)
+   NESTFINDER - DESIGN SYSTEM & STYLING (STEP 4)
    ========================================================================== */
 
 :root {
@@ -186,6 +186,80 @@ h1, h2, h3 {
     font-size: 1.15rem;
     max-width: 600px;
     margin: 0 auto 2rem;
+}
+
+/* Search Bar Component */
+.search-container {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 1000px;
+    margin: -2rem auto 3rem;
+    position: relative;
+    z-index: 10;
+}
+
+.search-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.search-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.search-field label {
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.search-input, .search-select {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    outline: none;
+    width: 100%;
+    transition: var(--transition);
+}
+
+.search-input:focus, .search-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.range-slider {
+    width: 100%;
+    background: var(--border-color);
+    height: 6px;
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
 }
 
 /* Browse Section & Listings Grid */

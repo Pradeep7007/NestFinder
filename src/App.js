@@ -1,8 +1,8 @@
 /* ==========================================================================
-   NESTFINDER - MAIN APPLICATION (STEP 3)
+   NESTFINDER - MAIN APPLICATION (STEP 4)
    ========================================================================== */
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useMemo } = React;
 
 // Initial listing database
 const DEFAULT_LISTINGS = [
@@ -93,11 +93,31 @@ function App() {
     const [currentTab, setCurrentTab] = useState("browse");
     const [listings] = useState(DEFAULT_LISTINGS);
 
+    // Search and filter states
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterType, setFilterType] = useState("all");
+    const [filterDistrict, setFilterDistrict] = useState("all");
+    const [filterPriceRange, setFilterPriceRange] = useState(10000);
+    const [filterVerified, setFilterVerified] = useState(false);
+
     useEffect(() => {
         if (window.lucide) {
             window.lucide.createIcons();
         }
-    }, [currentTab, userRole, listings]);
+    }, [currentTab, userRole, listings, searchQuery, filterType, filterDistrict, filterPriceRange, filterVerified]);
+
+    // Computed filters logic
+    const filteredListings = useMemo(() => {
+        return listings.filter(item => {
+            const matchQuery = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                               item.description.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchType = filterType === "all" || item.type === filterType;
+            const matchDistrict = filterDistrict === "all" || item.district === filterDistrict;
+            const matchPrice = item.price <= filterPriceRange;
+            const matchVerify = !filterVerified || item.verified;
+            return matchQuery && matchType && matchDistrict && matchPrice && matchVerify;
+        });
+    }, [listings, searchQuery, filterType, filterDistrict, filterPriceRange, filterVerified]);
 
     return (
         <React.Fragment>
@@ -148,46 +168,119 @@ function App() {
 
                 {/* BROWSE GRID BLOCK */}
                 {currentTab === "browse" && (
-                    <div className="browse-section">
-                        <div className="listings-container">
-                            <div className="listings-header">
-                                <h2>Available Spaces ({listings.length})</h2>
-                            </div>
-                            <div className="listings-grid">
-                                {listings.map(property => (
-                                    <div key={property.id} className="property-card">
-                                        <div className="property-image-container">
-                                            <img src={property.image} className="property-image" alt={property.title} />
-                                            <span className="card-badge">{property.district}</span>
-                                            {property.verified && (
-                                                <span className="verified-badge">
-                                                    <i data-lucide="check" style={{ width: '12px', height: '12px' }}></i> Verified
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="property-info">
-                                            <div className="property-price">${property.price.toLocaleString()}<span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>/mo</span></div>
-                                            <h3 className="property-title">{property.title}</h3>
-                                            <div className="property-location">
-                                                <i data-lucide="map-pin" style={{ width: '14px', height: '14px' }}></i>
-                                                {property.district} District
-                                            </div>
-                                            <div className="property-features">
-                                                <div className="feature-item">
-                                                    <i data-lucide="bed" style={{ width: '14px', height: '14px' }}></i>
-                                                    {property.beds} {property.beds === 0 ? 'Studio' : property.beds === 1 ? 'Bed' : 'Beds'}
-                                                </div>
-                                                <div className="feature-item">
-                                                    <i data-lucide="bath" style={{ width: '14px', height: '14px' }}></i>
-                                                    {property.baths} {property.baths === 1 ? 'Bath' : 'Baths'}
-                                                </div>
-                                            </div>
-                                        </div>
+                    <React.Fragment>
+                        {/* Search and Filters container */}
+                        <div className="search-container">
+                            <div className="search-grid">
+                                <div className="search-field">
+                                    <label>Search Keyword</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="District, street, or feature..." 
+                                        className="search-input"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                                <div className="search-field">
+                                    <label>Property Type</label>
+                                    <select 
+                                        className="search-select"
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value)}
+                                    >
+                                        <option value="all">All Types</option>
+                                        <option value="apartment">Apartment</option>
+                                        <option value="house">House</option>
+                                        <option value="loft">Loft</option>
+                                        <option value="studio">Studio</option>
+                                    </select>
+                                </div>
+                                <div className="search-field">
+                                    <label>Location District</label>
+                                    <select 
+                                        className="search-select"
+                                        value={filterDistrict}
+                                        onChange={(e) => setFilterDistrict(e.target.value)}
+                                    >
+                                        <option value="all">All Districts</option>
+                                        <option value="Marina">Marina</option>
+                                        <option value="Sunset">Sunset</option>
+                                        <option value="Mission">Mission</option>
+                                        <option value="Pacific Heights">Pacific Heights</option>
+                                    </select>
+                                </div>
+                                <div className="search-field">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <label>Max Rent</label>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '600' }}>
+                                            ${filterPriceRange.toLocaleString()}/mo
+                                        </span>
                                     </div>
-                                ))}
+                                    <input 
+                                        type="range" 
+                                        min="1500" 
+                                        max="10000" 
+                                        step="100" 
+                                        className="range-slider"
+                                        value={filterPriceRange}
+                                        onChange={(e) => setFilterPriceRange(parseInt(e.target.value))}
+                                    />
+                                </div>
+                                <div className="search-field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', paddingBottom: '0.5rem' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="verified-only" 
+                                        checked={filterVerified} 
+                                        onChange={(e) => setFilterVerified(e.target.checked)}
+                                        style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                                    />
+                                    <label htmlFor="verified-only" style={{ cursor: 'pointer' }}>Verified Only</label>
+                                </div>
                             </div>
                         </div>
-                    </div>
+
+                        <div className="browse-section">
+                            <div className="listings-container">
+                                <div className="listings-header">
+                                    <h2>Available Spaces ({filteredListings.length})</h2>
+                                </div>
+                                <div className="listings-grid">
+                                    {filteredListings.map(property => (
+                                        <div key={property.id} className="property-card">
+                                            <div className="property-image-container">
+                                                <img src={property.image} className="property-image" alt={property.title} />
+                                                <span className="card-badge">{property.district}</span>
+                                                {property.verified && (
+                                                    <span className="verified-badge">
+                                                        <i data-lucide="check" style={{ width: '12px', height: '12px' }}></i> Verified
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="property-info">
+                                                <div className="property-price">${property.price.toLocaleString()}<span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>/mo</span></div>
+                                                <h3 className="property-title">{property.title}</h3>
+                                                <div className="property-location">
+                                                    <i data-lucide="map-pin" style={{ width: '14px', height: '14px' }}></i>
+                                                    {property.district} District
+                                                </div>
+                                                <div className="property-features">
+                                                    <div className="feature-item">
+                                                        <i data-lucide="bed" style={{ width: '14px', height: '14px' }}></i>
+                                                        {property.beds} {property.beds === 0 ? 'Studio' : property.beds === 1 ? 'Bed' : 'Beds'}
+                                                    </div>
+                                                    <div className="feature-item">
+                                                        <i data-lucide="bath" style={{ width: '14px', height: '14px' }}></i>
+                                                        {property.baths} {property.baths === 1 ? 'Bath' : 'Baths'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </React.Fragment>
                 )}
 
                 {currentTab !== "browse" && (
