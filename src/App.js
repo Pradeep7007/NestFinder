@@ -1,5 +1,5 @@
 /* ==========================================================================
-   NESTFINDER - MAIN APPLICATION (STEP 6)
+   NESTFINDER - MAIN APPLICATION (STEP 7)
    ========================================================================== */
 
 const { useState, useEffect, useRef, useMemo } = React;
@@ -103,6 +103,15 @@ function App() {
     // Detail Modal State
     const [selectedProperty, setSelectedProperty] = useState(null);
 
+    // AI Matching Engine State
+    const [matchAnswers, setMatchAnswers] = useState({
+        budget: 5000,
+        beds: "any",
+        district: "any",
+        priority: "none"
+    });
+    const [isMatchingCalculated, setIsMatchingCalculated] = useState(false);
+
     // Map instances and markers ref
     const mapInstance = useRef(null);
     const markers = useRef([]);
@@ -137,6 +146,60 @@ function App() {
             return matchQuery && matchType && matchDistrict && matchPrice && matchVerify;
         });
     }, [listings, searchQuery, filterType, filterDistrict, filterPriceRange, filterVerified]);
+
+    // Preference matching engine calculation
+    const matchedListings = useMemo(() => {
+        if (!isMatchingCalculated) return [];
+
+        return listings.map(item => {
+            let score = 100;
+
+            // Budget Matching
+            if (item.price > matchAnswers.budget) {
+                const difference = item.price - matchAnswers.budget;
+                const penalty = Math.min(40, Math.floor(difference / 100) * 2.5);
+                score -= penalty;
+            } else {
+                score += 5;
+            }
+
+            // Bedrooms Matching
+            if (matchAnswers.beds !== "any") {
+                const targetBeds = parseInt(matchAnswers.beds);
+                if (item.beds < targetBeds) {
+                    score -= 35;
+                } else if (item.beds === targetBeds) {
+                    score += 10;
+                }
+            }
+
+            // District preference
+            if (matchAnswers.district !== "any") {
+                if (item.district.toLowerCase() === matchAnswers.district.toLowerCase()) {
+                    score += 20;
+                } else {
+                    score -= 15;
+                }
+            }
+
+            // Priorities
+            if (matchAnswers.priority === "verified" && !item.verified) {
+                score -= 30;
+            } else if (matchAnswers.priority === "transit" && item.features.join(" ").toLowerCase().includes("transit")) {
+                score += 15;
+            } else if (matchAnswers.priority === "view" && item.features.join(" ").toLowerCase().includes("view")) {
+                score += 15;
+            }
+
+            const finalPercent = Math.max(0, Math.min(100, score));
+
+            return {
+                ...item,
+                matchScore: finalPercent
+            };
+        }).sort((a, b) => b.matchScore - a.matchScore);
+
+    }, [listings, matchAnswers, isMatchingCalculated]);
 
     // Initialize/update Map
     useEffect(() => {
@@ -202,14 +265,14 @@ function App() {
         <React.Fragment>
             {/* Header & Navbar */}
             <nav className="navbar">
-                <div className="nav-brand" onClick={() => setCurrentTab("browse")}>
+                <div className="nav-brand" onClick={() => { setCurrentTab("browse"); setIsMatchingCalculated(false); }}>
                     <i data-lucide="home"></i> NestFinder
                 </div>
                 <ul className="nav-menu">
                     <li>
                         <span 
                             className={`nav-item ${currentTab === "browse" ? "active" : ""}`}
-                            onClick={() => setCurrentTab("browse")}
+                            onClick={() => { setCurrentTab("browse"); setIsMatchingCalculated(false); }}
                         >
                             Browse Listings
                         </span>
@@ -368,10 +431,137 @@ function App() {
                     </React.Fragment>
                 )}
 
-                {currentTab !== "browse" && (
-                    <div style={{ textAlign: 'center', paddingTop: '4rem' }}>
-                        <h2>Tab: {currentTab} Under Construction</h2>
-                        <p style={{ color: 'var(--text-secondary)' }}>This module is currently being configured.</p>
+                {/* TAB CONTENT: PREFERENCE MATCH */}
+                {currentTab === "match" && (
+                    <div className="matching-engine">
+                        <div className="engine-header">
+                            <h2>Preference Suitability Engine</h2>
+                            <p>Configure your criteria to rank properties based on custom calculations tailored to your lifestyle parameters.</p>
+                        </div>
+
+                        {!isMatchingCalculated ? (
+                            <React.Fragment>
+                                <div className="question-card">
+                                    <div className="question-title">1. What is your absolute maximum monthly rental budget?</div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontWeight: '600' }}>$1,500</span>
+                                        <span style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '1.25rem' }}>${matchAnswers.budget.toLocaleString()} / mo</span>
+                                        <span style={{ fontWeight: '600' }}>$10,000+</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="1500" 
+                                        max="10000" 
+                                        step="100" 
+                                        className="range-slider"
+                                        value={matchAnswers.budget}
+                                        onChange={(e) => setMatchAnswers(prev => ({ ...prev, budget: parseInt(e.target.value) }))}
+                                    />
+                                </div>
+
+                                <div className="question-card">
+                                    <div className="question-title">2. How many bedrooms do you ideally require?</div>
+                                    <div className="option-boxes">
+                                        {["any", "0", "1", "2", "3"].map((val) => (
+                                            <div 
+                                                key={val} 
+                                                className={`option-box ${matchAnswers.beds === val ? "active" : ""}`}
+                                                onClick={() => setMatchAnswers(prev => ({ ...prev, beds: val }))}
+                                            >
+                                                {val === "any" ? "Any Size" : val === "0" ? "Studio" : `${val} Bed`}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="question-card">
+                                    <div className="question-title">3. What is your preferred residential location?</div>
+                                    <div className="option-boxes">
+                                        {["any", "Marina", "Sunset", "Mission", "Pacific Heights"].map((dist) => (
+                                            <div 
+                                                key={dist} 
+                                                className={`option-box ${matchAnswers.district === dist ? "active" : ""}`}
+                                                onClick={() => setMatchAnswers(prev => ({ ...prev, district: dist }))}
+                                            >
+                                                {dist === "any" ? "No Preference" : dist}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="question-card">
+                                    <div className="question-title">4. Select your main lifestyle priority:</div>
+                                    <div className="option-boxes">
+                                        {[
+                                            { key: "none", val: "No Priority" },
+                                            { key: "verified", val: "Trust Verified Only" },
+                                            { key: "transit", val: "Transit Accessibility" },
+                                            { key: "view", val: "Scenic Views" }
+                                        ].map((pri) => (
+                                            <div 
+                                                key={pri.key} 
+                                                className={`option-box ${matchAnswers.priority === pri.key ? "active" : ""}`}
+                                                onClick={() => setMatchAnswers(prev => ({ ...prev, priority: pri.key }))}
+                                            >
+                                                {pri.val}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <button 
+                                    className="btn btn-primary" 
+                                    style={{ padding: '1rem', width: '100%', fontSize: '1rem', marginTop: '1rem' }}
+                                    onClick={() => setIsMatchingCalculated(true)}
+                                >
+                                    Calculate Suitability Matches
+                                </button>
+                            </React.Fragment>
+                        ) : (
+                            <React.Fragment>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h3>Configured Suitability Rankings</h3>
+                                    <button 
+                                        className="btn btn-secondary" 
+                                        onClick={() => setIsMatchingCalculated(false)}
+                                    >
+                                        Edit Questionnaire
+                                    </button>
+                                </div>
+
+                                <div className="listings-grid">
+                                    {matchedListings.map(property => (
+                                        <div key={property.id} className="property-card" onClick={() => setSelectedProperty(property)}>
+                                            <div className="property-image-container">
+                                                <img src={property.image} className="property-image" alt={property.title} />
+                                                <span className="card-badge">{property.district}</span>
+                                                <span className="match-score-badge">
+                                                    {property.matchScore}% Match
+                                                </span>
+                                            </div>
+                                            <div className="property-info">
+                                                <div className="property-price">${property.price.toLocaleString()}<span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>/mo</span></div>
+                                                <h3 className="property-title">{property.title}</h3>
+                                                <div className="property-location">
+                                                    <i data-lucide="map-pin" style={{ width: '14px', height: '14px' }}></i>
+                                                    {property.district} District
+                                                </div>
+                                                <div className="property-features">
+                                                    <div className="feature-item">
+                                                        <i data-lucide="bed" style={{ width: '14px', height: '14px' }}></i>
+                                                        {property.beds} {property.beds === 0 ? 'Studio' : property.beds === 1 ? 'Bed' : 'Beds'}
+                                                    </div>
+                                                    <div className="feature-item">
+                                                        <i data-lucide="bath" style={{ width: '14px', height: '14px' }}></i>
+                                                        {property.baths} {property.baths === 1 ? 'Bath' : 'Baths'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </React.Fragment>
+                        )}
                     </div>
                 )}
             </main>
