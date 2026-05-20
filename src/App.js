@@ -1,5 +1,5 @@
 /* ==========================================================================
-   NESTFINDER - MAIN APPLICATION (STEP 5)
+   NESTFINDER - MAIN APPLICATION (STEP 6)
    ========================================================================== */
 
 const { useState, useEffect, useRef, useMemo } = React;
@@ -100,6 +100,9 @@ function App() {
     const [filterPriceRange, setFilterPriceRange] = useState(10000);
     const [filterVerified, setFilterVerified] = useState(false);
 
+    // Detail Modal State
+    const [selectedProperty, setSelectedProperty] = useState(null);
+
     // Map instances and markers ref
     const mapInstance = useRef(null);
     const markers = useRef([]);
@@ -114,12 +117,13 @@ function App() {
     // Expose global bridge for marker click
     useEffect(() => {
         window.viewPropertyDetails = (id) => {
-            alert(`Selected property ID: ${id}`);
+            const prop = listings.find(p => p.id === id);
+            if (prop) setSelectedProperty(prop);
         };
         return () => {
             delete window.viewPropertyDetails;
         };
-    }, []);
+    }, [listings]);
 
     // Computed filters logic
     const filteredListings = useMemo(() => {
@@ -322,7 +326,7 @@ function App() {
                                 </div>
                                 <div className="listings-grid">
                                     {filteredListings.map(property => (
-                                        <div key={property.id} className="property-card" onClick={() => window.viewPropertyDetails(property.id)}>
+                                        <div key={property.id} className="property-card" onClick={() => setSelectedProperty(property)}>
                                             <div className="property-image-container">
                                                 <img src={property.image} className="property-image" alt={property.title} />
                                                 <span className="card-badge">{property.district}</span>
@@ -371,6 +375,74 @@ function App() {
                     </div>
                 )}
             </main>
+
+            {/* DETAIL MODAL */}
+            {selectedProperty && (
+                <div className="modal-overlay" onClick={() => setSelectedProperty(null)}>
+                    <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div>
+                                <h2 style={{ fontSize: '1.4rem' }}>{selectedProperty.title}</h2>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
+                                    <i data-lucide="map-pin" style={{ width: '12px', height: '12px' }}></i>
+                                    {selectedProperty.district} District
+                                </p>
+                            </div>
+                            <button className="modal-close" onClick={() => setSelectedProperty(null)}>&times;</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="modal-main-col">
+                                <img src={selectedProperty.image} className="modal-image" alt={selectedProperty.title} />
+                                <div>
+                                    <h3 style={{ marginBottom: '0.5rem', fontSize: '1.15rem' }}>Property Description</h3>
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{selectedProperty.description}</p>
+                                </div>
+                                <div>
+                                    <h3 style={{ marginBottom: '0.75rem', fontSize: '1.15rem' }}>Key Amenities</h3>
+                                    <div className="modal-features-list">
+                                        {selectedProperty.features.map((feat, idx) => (
+                                            <div key={idx} className="modal-feature-tag">
+                                                <i data-lucide="check-circle" style={{ width: '14px', height: '14px', color: 'var(--primary)' }}></i>
+                                                {feat}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="modal-side-col">
+                                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1.25rem' }}>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Monthly Rental Rate</div>
+                                    <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary)', fontFamily: 'var(--font-heading)', margin: '0.25rem 0 1rem' }}>
+                                        ${selectedProperty.price.toLocaleString()}
+                                        <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>/mo</span>
+                                    </div>
+                                    <button className="btn btn-primary" style={{ width: '100%' }}>
+                                        Reserve Property
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <h3 style={{ marginBottom: '0.75rem', fontSize: '1.15rem' }}>Neighborhood Trust Scorecard</h3>
+                                    <div className="insights-grid">
+                                        <div className="insight-card">
+                                            <div className="insight-val">{selectedProperty.insights?.walkability || "N/A"}</div>
+                                            <div className="insight-lbl">Walkability</div>
+                                        </div>
+                                        <div className="insight-card">
+                                            <div className="insight-val">{selectedProperty.insights?.schoolRating || "N/A"}</div>
+                                            <div className="insight-lbl">Schools</div>
+                                        </div>
+                                        <div className="insight-card">
+                                            <div className="insight-val" style={{ fontSize: '1rem', paddingTop: '0.2rem' }}>{selectedProperty.insights?.medianIncome || "N/A"}</div>
+                                            <div className="insight-lbl">Med Income</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </React.Fragment>
     );
 }
